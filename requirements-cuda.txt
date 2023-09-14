@@ -1,0 +1,12 @@
+tqdm
+numexpr
+h5py
+flatbuffers>=2.0
+opencv-python==4.8.0.74
+ffmpeg-python==0.1.17
+colorama
+torch
+tf2onnx
+PyYAML
+Pillow
+Scipy

@@ -1,0 +1,2 @@
+python3 main.py xseg "apply" --input-dir data/data_src/aligned --model-dir GenericXSeg/ # "Apply mask", "Remove mask"
+python3 main.py xseg "apply" --input-dir data/data_dst/aligned --model-dir GenericXSeg/

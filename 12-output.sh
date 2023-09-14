@@ -1,0 +1,2 @@
+python3 main.py videoed video-from-sequence --input-dir data/data_dst/merged --output-file result.mp4 --reference-file data/data_dst.mp4 --include-audio
+python3 main.py videoed video-from-sequence --input-dir data/data_dst/merged_mask --output-file result-mask.mp4 --reference-file data/data_dst.mp4

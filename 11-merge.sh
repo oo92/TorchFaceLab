@@ -1,0 +1,1 @@
+python3 main.py merge --input-dir data/data_dst --output-dir data/data_dst/merged --output-mask-dir data/data_dst/merged_mask --aligned-dir data/data_dst/aligned --model-dir model/ --model SAEHD # "SAEHD", "AMP", "Quick96"

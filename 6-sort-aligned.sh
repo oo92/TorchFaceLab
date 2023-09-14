@@ -1,0 +1,2 @@
+python3 main.py sort --input-dir data/data_src/aligned --by hist # blur, motion-blur, face-yaw, face-pitch, face-source-rect-size, hist, hist-dissim, brightness, hue, black, origname, oneface, final-by-blur, final-by-size, absdiff
+python3 main.py sort --input-dir data/data_dst/aligned --by hist

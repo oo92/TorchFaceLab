@@ -1,0 +1,18 @@
+================== Model Summary ==================
+==                                               ==
+==        Model name: XSeg                       ==
+==                                               ==
+== Current iteration: 323192                     ==
+==                                               ==
+==---------------- Model Options ----------------==
+==                                               ==
+==         face_type: wf                         ==
+==        batch_size: 16                         ==
+==                                               ==
+==----------------- Running On ------------------==
+==                                               ==
+==      Device index: 0                          ==
+==              Name: NVIDIA GeForce RTX 2080 Ti ==
+==              VRAM: 9.32GB                     ==
+==                                               ==
+===================================================

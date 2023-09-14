@@ -1,0 +1,2 @@
+python3 main.py extract --input-dir data/data_src --output-dir data/data_src/aligned/ --detector s3fd
+python3 main.py extract --input-dir data/data_dst --output-dir data/data_dst/aligned/ --detector s3fd --max-faces-from-image 0 --output-debug
