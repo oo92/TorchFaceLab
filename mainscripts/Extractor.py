@@ -1,29 +1,163 @@
-﻿import traceback
-import math
-import multiprocessing
-import operator
-import os
-import shutil
-import sys
-import time
+﻿import traceback, math, multiprocessing, operator, os, shutil, sys, time, cv2, facelib
 from pathlib import Path
 
-import cv2
 import numpy as np
-from numpy import linalg as npla
 
-import facelib
+from numpy import linalg as npla
 from core import imagelib
 from core import mathlib
 from facelib import FaceType, LandmarksProcessor
 from core.interact import interact as io
 from core.joblib import Subprocessor
-from core.leras import nn
+from core.leras.device import Devices, Device
 from core import pathex
 from core.cv2ex import *
 from DFLIMG import *
+from core.leras.device import Devices
 
 DEBUG = False
+
+class DeviceConfig():
+    current_DeviceConfig = None
+    device = None
+
+    def set_floatx(torch_dtype):
+        """Set default float type for all layers when dtype is None for them"""
+        floatx = torch_dtype
+
+    @staticmethod
+    def getCurrentDeviceConfig():
+        if current_DeviceConfig is None:
+            current_DeviceConfig = DeviceConfig.BestGPU()
+        return current_DeviceConfig
+
+    @staticmethod
+    def setCurrentDeviceConfig(device_config):
+        current_DeviceConfig = device_config
+
+    @staticmethod
+    def initialize(device_config=None, floatx="float32"):
+
+        if device is None:
+            if device_config is None:
+                device_config = getCurrentDeviceConfig()
+            setCurrentDeviceConfig(device_config)
+
+            if torch.cuda.is_available():
+                io.log_info(f"Using GPU: {torch.cuda.get_device_name(0)}")
+                device = torch.device('cuda')
+            else:
+                io.log_info("Using CPU")
+                device = torch.device('cpu')
+
+        if floatx == "float32":
+            floatx = torch.float32
+        elif floatx == "float16":
+            floatx = torch.float16
+        else:
+            raise ValueError(f"unsupported floatx {floatx}")
+        set_floatx(floatx)
+
+    @staticmethod
+    def ask_choose_device_idxs(choose_only_one=False, allow_cpu=True, suggest_best_multi_gpu=False, suggest_all_gpu=False):
+        devices = Devices.getDevices()
+        if len(devices) == 0:
+            return []
+
+        all_devices_indexes = [device.index for device in devices]
+
+        if choose_only_one:
+            suggest_best_multi_gpu = False
+            suggest_all_gpu = False
+
+        if suggest_all_gpu:
+            best_device_indexes = all_devices_indexes
+        elif suggest_best_multi_gpu:
+            best_device_indexes = [device.index for device in devices.get_equal_devices(devices.get_best_device()) ]
+        else:
+            best_device_indexes = [ devices.get_best_device().index ]
+        best_device_indexes = ",".join([str(x) for x in best_device_indexes])
+
+        io.log_info ("")
+        if choose_only_one:
+            io.log_info ("Choose one GPU idx.")
+        else:
+            io.log_info ("Choose one or several GPU idxs (separated by comma).")
+        io.log_info ("")
+
+        if allow_cpu:
+            io.log_info ("[CPU] : CPU")
+        for device in devices:
+            io.log_info (f"  [{device.index}] : {device.name}")
+
+        io.log_info ("")
+
+        while True:
+            try:
+                if choose_only_one:
+                    choosed_idxs = io.input_str("Which GPU index to choose?", best_device_indexes)
+                else:
+                    choosed_idxs = io.input_str("Which GPU indexes to choose?", best_device_indexes)
+
+                if allow_cpu and choosed_idxs.lower() == "cpu":
+                    choosed_idxs = []
+                    break
+
+                choosed_idxs = [ int(x) for x in choosed_idxs.split(',') ]
+
+                if choose_only_one:
+                    if len(choosed_idxs) == 1:
+                        break
+                else:
+                    if all( [idx in all_devices_indexes for idx in choosed_idxs] ):
+                        break
+            except:
+                pass
+        io.log_info ("")
+
+        return choosed_idxs
+
+    @staticmethod
+    def ask_choose_device(*args, **kwargs):
+        return DeviceConfig.GPUIndexes(DeviceConfig.ask_choose_device_idxs(*args,**kwargs) )
+    
+    def __init__ (self, devices=None):
+        devices = devices or []
+
+        if not isinstance(devices, Devices):
+            devices = Devices(devices)
+
+        self.devices = devices
+        self.cpu_only = len(devices) == 0
+
+    @staticmethod
+    def BestGPU():
+        devices = Devices.getDevices()
+        if len(devices) == 0:
+            return DeviceConfig.CPU()
+
+        return DeviceConfig([devices.get_best_device()])
+
+    @staticmethod
+    def WorstGPU():
+        devices = Devices.getDevices()
+        if len(devices) == 0:
+            return DeviceConfig.CPU()
+
+        return DeviceConfig([devices.get_worst_device()])
+
+    @staticmethod
+    def GPUIndexes(indexes):
+        if len(indexes) != 0:
+            devices = Devices.getDevices().get_devices_from_index_list(indexes)
+        else:
+            devices = []
+
+        return DeviceConfig(devices)
+
+    @staticmethod
+    def CPU():
+        return DeviceConfig([])
 
 class ExtractSubprocessor(Subprocessor):
     class Data(object):
@@ -58,14 +192,14 @@ class ExtractSubprocessor(Subprocessor):
                 sys.stdin = os.fdopen(stdin_fd)
 
             if self.cpu_only:
-                device_config = nn.DeviceConfig.CPU()
+                device_config = DeviceConfig.CPU()
                 place_model_on_cpu = True
             else:
-                device_config = nn.DeviceConfig.GPUIndexes ([self.device_idx])
+                device_config = DeviceConfig.GPUIndexes ([self.device_idx])
                 place_model_on_cpu = device_config.devices[0].total_mem_gb < 4
 
             if self.type == 'all' or 'rects' in self.type or 'landmarks' in self.type:
-                nn.initialize (device_config)
+                Devices.initialize_main_env()
 
             self.log_info (f"Running on {client_dict['device_name'] }")
 
@@ -757,8 +891,8 @@ def main(detector=None,
                 for filename in output_images_paths:
                     Path(filename).unlink()
 
-    device_config = nn.DeviceConfig.GPUIndexes( force_gpu_idxs or nn.ask_choose_device_idxs(choose_only_one=detector=='manual', suggest_all_gpu=True) ) \
-                    if not cpu_only else nn.DeviceConfig.CPU()
+    device_config = DeviceConfig.GPUIndexes(force_gpu_idxs or DeviceConfig.ask_choose_device_idxs(choose_only_one=detector=='manual', suggest_all_gpu=True) ) \
+                    if not cpu_only else DeviceConfig.CPU()
 
     if face_type is None:
         face_type = io.input_str ("Face type", 'wf', ['f','wf','head'], help_message="Full face / whole face / head. 'Whole face' covers full area of face include forehead. 'head' covers full head, but requires XSeg for src and dst faceset.").lower()

@@ -1,40 +1,34 @@
-from core.leras import nn
-tf = nn.tf
+import torch
+import torch.nn as nn
 
-class InstanceNorm2D(nn.LayerBase):
-    def __init__(self, in_ch, dtype=None, **kwargs):
+class InstanceNorm2D(nn.Module):
+    def __init__(self, in_ch, dtype=None):
+        super(InstanceNorm2D, self).__init__()
         self.in_ch = in_ch
-
         if dtype is None:
-            dtype = nn.floatx
+            dtype = torch.float32
         self.dtype = dtype
-
-        super().__init__(**kwargs)
-
-    def build_weights(self):
-        kernel_initializer = tf.initializers.glorot_uniform(dtype=self.dtype)
-        self.weight       = tf.get_variable("weight",   (self.in_ch,), dtype=self.dtype, initializer=kernel_initializer )
-        self.bias         = tf.get_variable("bias",     (self.in_ch,), dtype=self.dtype, initializer=tf.initializers.zeros() )
-
-    def get_weights(self):
-        return [self.weight, self.bias]
+        
+        # Instead of using tf.get_variable(), we can use nn.Parameter to declare weights
+        # Note that in PyTorch, the preferred way to declare weights and biases is using nn.Parameter.
+        self.weight = nn.Parameter(torch.randn(self.in_ch, dtype=self.dtype))
+        self.bias = nn.Parameter(torch.zeros(self.in_ch, dtype=self.dtype))
+        
+        # Initialize the weights
+        nn.init.xavier_uniform_(self.weight)
 
     def forward(self, x):
-        if nn.data_format == "NHWC":
-            shape = (1,1,1,self.in_ch)
-        else:
-            shape = (1,self.in_ch,1,1)
-
-        weight       = tf.reshape ( self.weight      , shape )
-        bias         = tf.reshape ( self.bias        , shape )
-
-        x_mean = tf.reduce_mean(x, axis=nn.conv2d_spatial_axes, keepdims=True )
-        x_std  = tf.math.reduce_std(x, axis=nn.conv2d_spatial_axes, keepdims=True ) + 1e-5
-
-        x = (x - x_mean) / x_std
-        x *= weight
-        x += bias
-
-        return x
+        # Assuming that data_format "NHWC" corresponds to shape (N, H, W, C) in TensorFlow,
+        # this is equivalent to (N, C, H, W) in PyTorch, which is PyTorch's default format.
+        
+        # Computing mean and std dev along the spatial dimensions
+        x_mean = x.mean(dim=[2,3], keepdim=True)
+        x_std = x.std(dim=[2,3], keepdim=True) + 1e-5
+        
+        # Perform instance normalization
+        x_normalized = (x - x_mean) / x_std
+        x_out = self.weight.view(1, self.in_ch, 1, 1) * x_normalized + self.bias.view(1, self.in_ch, 1, 1)
+        
+        return x_out
 
 nn.InstanceNorm2D = InstanceNorm2D

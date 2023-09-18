@@ -1,7 +1,6 @@
-from core.leras import nn
-tf = nn.tf
+import torch.nn as nn
 
-class LayerBase(nn.Saveable):
+class LayerBase():
     #override
     def build_weights(self):
         pass

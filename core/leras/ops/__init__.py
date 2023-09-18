@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from core.leras import nn
+# from core.leras import nn
 
 from .CA import CAInitializerSubprocessor
 
@@ -18,4 +18,4 @@ class initializers():
             # list of (shape, np.dtype)
             return CAInitializerSubprocessor(data_list).run()
 
-nn.initializers = initializers
+# nn.initializers = initializers

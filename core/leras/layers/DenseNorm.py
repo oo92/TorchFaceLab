@@ -1,16 +1,16 @@
-from core.leras import nn
-tf = nn.tf
+import torch
+import torch.nn as nn
 
-class DenseNorm(nn.LayerBase):
-    def __init__(self, dense=False, eps=1e-06, dtype=None, **kwargs):
-        self.dense = dense        
-        if dtype is None:
-            dtype = nn.floatx
-        self.eps = tf.constant(eps, dtype=dtype, name="epsilon")
-
-        super().__init__(**kwargs)
-
-    def __call__(self, x):
-        return x * tf.rsqrt(tf.reduce_mean(tf.square(x), axis=-1, keepdims=True) + self.eps)
+class DenseNorm(nn.Module):
+    def __init__(self, dense=False, eps=1e-06, dtype=None):
+        super(DenseNorm, self).__init__()
+        self.dense = dense
         
+        if dtype is None:
+            dtype = torch.float32
+        self.eps = torch.tensor(eps, dtype=dtype)
+
+    def forward(self, x):
+        return x * (torch.mean(x.pow(2), dim=-1, keepdim=True) + self.eps).rsqrt()
+
 nn.DenseNorm = DenseNorm

@@ -1,17 +1,18 @@
-from core.leras import nn
+import torch.nn as nn
 
-class ArchiBase():
+class ArchiBase(nn.Module):
     
     def __init__(self, *args, name=None, **kwargs):
-        self.name=name
+        super(ArchiBase, self).__init__()
+        self.name = name
         
-       
-    #overridable 
+    # Overridable 
     def flow(self, *args, **kwargs):
-        raise Exception("this archi does not support flow. Use model classes directly.")
+        raise Exception("This architecture does not support flow. Use model classes directly.")
     
-    #overridable
+    # Overridable
     def get_weights(self):
         pass
+
     
 nn.ArchiBase = ArchiBase

@@ -4,7 +4,7 @@ if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")
 
     from core.leras import nn
-    nn.initialize_main_env()
+    # nn.initialize_main_env()
     import os
     import sys
     import time
@@ -14,7 +14,9 @@ if __name__ == "__main__":
     from core import osex
     from pathlib import Path
     from core.interact import interact as io
-
+    from core.leras.device import Devices
+    Devices.initialize_main_env()
+    
     if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 6):
         raise Exception("This program requires at least Python 3.6")
 

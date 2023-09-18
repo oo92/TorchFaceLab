@@ -1,12 +1,6 @@
-import sys
-import ctypes
-import os
-import multiprocessing
-import json
-import time
+import sys, ctypes, os, multiprocessing, json, time, torch
 from pathlib import Path
 from core.interact import interact as io
-import torch
 
 class Device(object):
     def __init__(self, index, pytorch_dev_type, name, total_mem, free_mem):

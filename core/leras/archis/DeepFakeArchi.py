@@ -2,22 +2,12 @@ from core.leras import nn
 tf = nn.tf
 
 class DeepFakeArchi(nn.ArchiBase):
-    """
-    resolution
 
-    mod     None - default
-            'quick'
-
-    opts    ''
-            ''
-            't'
-    """
     def __init__(self, resolution, use_fp16=False, mod=None, opts=None):
         super().__init__()
 
         if opts is None:
             opts = ''
-
 
         conv_dtype = tf.float16 if use_fp16 else tf.float32
         
@@ -214,8 +204,6 @@ class DeepFakeArchi(nn.ArchiBase):
                             self.out_convm = nn.Conv2D( d_mask_ch*1, 1, kernel_size=1, padding='SAME', dtype=conv_dtype)
                         else:
                             self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME', dtype=conv_dtype)
-
-                
                     
                 def forward(self, z):
                     x = self.upscale0(z)
@@ -230,13 +218,9 @@ class DeepFakeArchi(nn.ArchiBase):
                         x = self.res3(x)
 
                     if 'd' in opts:
-                        x = tf.nn.sigmoid( nn.depth_to_space(tf.concat( (self.out_conv(x),
-                                                                         self.out_conv1(x),
-                                                                         self.out_conv2(x),
-                                                                         self.out_conv3(x)), nn.conv2d_ch_axis), 2) )
+                        x = tf.nn.sigmoid( nn.depth_to_space(tf.concat( (self.out_conv(x), self.out_conv1(x), self.out_conv2(x),self.out_conv3(x)), nn.conv2d_ch_axis), 2) )
                     else:
                         x = tf.nn.sigmoid(self.out_conv(x))
-
 
                     m = self.upscalem0(z)
                     m = self.upscalem1(m)

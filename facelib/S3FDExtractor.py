@@ -1,8 +1,7 @@
 from pathlib import Path
 
-import cv2
+import cv2, torch, operator
 import numpy as np
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -64,73 +63,70 @@ class S3FD(nn.Module):
         self.conv7_2_mbox_conf = nn.Conv2d(256, 2, 3, 1, 1)
         self.conv7_2_mbox_loc = nn.Conv2d(256, 4, 3, 1, 1)
 
-        def forward(self, x):
-            x = x - self.minus
-            
-            # Layers
-            h = F.relu(self.conv1_1(x))
-            h = F.relu(self.conv1_2(h))
-            h = F.max_pool2d(h, 2, 2)
+    def forward(self, x):
+        x = x.cuda()
+        self.minus = self.minus.cuda()
+        x = x - self.minus
 
-            h = F.relu(self.conv2_1(h))
-            h = F.relu(self.conv2_2(h))
-            h = F.max_pool2d(h, 2, 2)
+        # Initial layers
+        h = F.relu(self.conv1_1(x))
+        h = F.relu(self.conv1_2(h))
+        h = F.max_pool2d(h, 2, 2)
 
-            h = F.relu(self.conv3_1(h))
-            h = F.relu(self.conv3_2(h))
-            h = F.relu(self.conv3_3(h))
-            f3_3 = self.conv3_3_norm(h)
-            mbox_3 = torch.cat([
-                self.conv3_3_norm_mbox_conf(f3_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4),
-                self.conv3_3_norm_mbox_loc(f3_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
-            ], 1)
-            h = F.max_pool2d(h, 2, 2)
+        h = F.relu(self.conv2_1(h))
+        h = F.relu(self.conv2_2(h))
+        h = F.max_pool2d(h, 2, 2)
 
-            h = F.relu(self.conv4_1(h))
-            h = F.relu(self.conv4_2(h))
-            h = F.relu(self.conv4_3(h))
-            f4_3 = self.conv4_3_norm(h)
-            mbox_4 = torch.cat([
-                self.conv4_3_norm_mbox_conf(f4_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2),
-                self.conv4_3_norm_mbox_loc(f4_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
-            ], 1)
-            h = F.max_pool2d(h, 2, 2)
+        h = F.relu(self.conv3_1(h))
+        h = F.relu(self.conv3_2(h))
+        h = F.relu(self.conv3_3(h))
+        f3_3 = self.conv3_3_norm(h)
+        h = F.max_pool2d(h, 2, 2)
 
-            h = F.relu(self.conv5_1(h))
-            h = F.relu(self.conv5_2(h))
-            h = F.relu(self.conv5_3(h))
-            f5_3 = self.conv5_3_norm(h)
-            mbox_5 = torch.cat([
-                self.conv5_3_norm_mbox_conf(f5_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2),
-                self.conv5_3_norm_mbox_loc(f5_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
-            ], 1)
-            h = F.max_pool2d(h, 2, 2)
+        h = F.relu(self.conv4_1(h))
+        h = F.relu(self.conv4_2(h))
+        h = F.relu(self.conv4_3(h))
+        f4_3 = self.conv4_3_norm(h)
+        h = F.max_pool2d(h, 2, 2)
 
-            h = F.relu(self.fc6(h))
-            h = F.relu(self.fc7(h))
-            mbox_6 = torch.cat([
-                self.fc7_mbox_conf(h).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2),
-                self.fc7_mbox_loc(h).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
-            ], 1)
+        h = F.relu(self.conv5_1(h))
+        h = F.relu(self.conv5_2(h))
+        h = F.relu(self.conv5_3(h))
+        f5_3 = self.conv5_3_norm(h)
+        h = F.max_pool2d(h, 2, 2)
 
-            h = F.relu(self.conv6_1(h))
-            h = F.relu(self.conv6_2(h))
-            mbox_7 = torch.cat([
-                self.conv6_2_mbox_conf(h).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2),
-                self.conv6_2_mbox_loc(h).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
-            ], 1)
+        h = F.relu(self.fc6(h))
+        h = F.relu(self.fc7(h))
+        ffc7 = h 
 
-            h = F.relu(self.conv7_1(h))
-            h = F.relu(self.conv7_2(h))
-            mbox_8 = torch.cat([
-                self.conv7_2_mbox_conf(h).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2),
-                self.conv7_2_mbox_loc(h).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
-            ], 1)
+        h = F.relu(self.conv6_1(h))
+        h = F.relu(self.conv6_2(h))
+        f6_2 = h
 
-            # concat results from all the layers
-            mbox = torch.cat([mbox_3, mbox_4, mbox_5, mbox_6, mbox_7, mbox_8], 1)
+        h = F.relu(self.conv7_1(h))
+        h = F.relu(self.conv7_2(h))
+        f7_2 = h
 
-            return mbox
+        cls1 = F.softmax(self.conv3_3_norm_mbox_conf(f3_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4), dim=-1)
+        reg1 = self.conv3_3_norm_mbox_loc(f3_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
+
+        cls2 = F.softmax(self.conv4_3_norm_mbox_conf(f4_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2), dim=-1)
+        reg2 = self.conv4_3_norm_mbox_loc(f4_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
+
+        cls3 = F.softmax(self.conv5_3_norm_mbox_conf(f5_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2), dim=-1)
+        reg3 = self.conv5_3_norm_mbox_loc(f5_3).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
+
+        cls4 = F.softmax(self.fc7_mbox_conf(ffc7).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2), dim=-1)
+        reg4 = self.fc7_mbox_loc(ffc7).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
+
+        cls5 = F.softmax(self.conv6_2_mbox_conf(f6_2).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2), dim=-1)
+        reg5 = self.conv6_2_mbox_loc(f6_2).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
+
+        cls6 = F.softmax(self.conv7_2_mbox_conf(f7_2).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 2), dim=-1)
+        reg6 = self.conv7_2_mbox_loc(f7_2).permute(0, 2, 3, 1).contiguous().view(x.size(0), -1, 4)
+
+        return [cls1, reg1, cls2, reg2, cls3, reg3, cls4, reg4, cls5, reg5, cls6, reg6]
+
 
 
 class S3FDExtractor(object):
@@ -149,8 +145,13 @@ class S3FDExtractor(object):
                 return True
             return False
 
-
-        def reshape_tensor(t):
+        def reshape_tensor(k, t):
+            if k == 'fc7.weight':
+                return t.reshape([1024, 1024, 1, 1])
+            if k in ['conv4_3_norm.weight', 'conv5_3_norm.weight']:
+                return t.reshape([1, 512, 1, 1])
+            if k == 'conv3_3_norm.weight':
+                return t.reshape([1, 256, 1, 1])
             if can_squeeze(t):
                 return t.squeeze()
             else:
@@ -166,11 +167,10 @@ class S3FDExtractor(object):
         state_dict_np = np.load(model_path, allow_pickle=True)
 
         # Convert numpy arrays within the state dictionary to PyTorch tensors
-        state_dict_torch = {rename_key(k): reshape_tensor(torch.tensor(v, dtype=torch.float32)).cpu() for k, v in state_dict_np.items()}
+        state_dict_torch = {rename_key(k): reshape_tensor(rename_key(k), torch.tensor(v, dtype=torch.float32)).cpu() for k, v in state_dict_np.items()}
 
         # Load the converted state dictionary into the model
         self.model.load_state_dict(state_dict_torch)
- 
 
 
     def __enter__(self):
@@ -180,28 +180,52 @@ class S3FDExtractor(object):
         return False  # pass exception between __enter__ and __exit__ to outer level
 
     def extract(self, input_image, is_bgr=True, is_remove_intersects=False):
-        # Convert your input image to a PyTorch tensor
+        # Convert BGR to RGB
         if is_bgr:
-            input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+            input_image = input_image[:, :, ::-1]
+
+        (h, w, ch) = input_image.shape
+
+        # Scale logic
+        d = max(w, h)
+        scale_to = 640 if d >= 1280 else d / 2
+        scale_to = max(64, scale_to)
+
+        input_scale = d / scale_to
+        input_image = cv2.resize(input_image, (int(w/input_scale), int(h/input_scale)), interpolation=cv2.INTER_LINEAR)
+
+        # Convert to PyTorch tensor and normalize
         input_tensor = torch.from_numpy(input_image.transpose(2, 0, 1)).float().unsqueeze(0) / 255.0
         input_tensor = input_tensor.to(self.device)
         
         # Forward pass the tensor through the model
         outputs = self.model(input_tensor)
-        
-        # Process outputs to obtain bounding boxes or any other required info
-        # This is a placeholder, you will need to adapt as per your requirements
-        bboxes = []
-        for output in outputs:
-            # Process each output to extract bounding boxes
-            # Assuming each output has shape (batch, boxes*4)
-            output_boxes = output.view(output.size(0), -1, 4)
-            for box in output_boxes:
-                if is_remove_intersects and intersects(box, bboxes):
-                    continue
-                bboxes.append(box)
 
-        return bboxes
+        detected_faces = []
+        for output in outputs:
+            for ltrb in output:
+                print('ltrb: ', ltrb)
+                l, t, r, b = [x*input_scale for x in ltrb] # <- Line causing the current issue
+                if min(r-l, b-t) < 40:
+                    continue
+                detected_faces.append([int(x) for x in (l, t, r, b)])
+
+        # Sort by largest area first
+        detected_faces = [[(l, t, r, b), (r-l)*(b-t)] for (l, t, r, b) in detected_faces]
+        detected_faces = sorted(detected_faces, key=operator.itemgetter(1), reverse=True)
+        detected_faces = [x[0] for x in detected_faces]
+
+        # Handling intersections
+        if is_remove_intersects:
+            for i in range(len(detected_faces)-1, 0, -1):
+                l1, t1, r1, b1 = detected_faces[i]
+                l0, t0, r0, b0 = detected_faces[i-1]
+                dx = min(r0, r1) - max(l0, l1)
+                dy = min(b0, b1) - max(t0, t1)
+                if (dx >= 0) and (dy >= 0):
+                    detected_faces.pop(i)
+
+        return detected_faces
 
 
     def refine(self, olist):

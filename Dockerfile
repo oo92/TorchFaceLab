@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && \
+RUN apt-get update -y && \
     apt-get install wget git libglib2.0-0 libgl1-mesa-glx sudo nano zip ffmpeg libxcb-xinerama0 -y && \
     rm -rf /var/lib/apt/lists/*
 

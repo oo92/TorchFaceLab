@@ -1,38 +1,35 @@
-from core.leras import nn
-tf = nn.tf
+import torch
+import torch.nn as nn
 
-class FRNorm2D(nn.LayerBase):
+class FRNorm2D(nn.Module):
     """
-    Tensorflow implementation of
+    PyTorch implementation of
     Filter Response Normalization Layer: Eliminating Batch Dependence in theTraining of Deep Neural Networks
     https://arxiv.org/pdf/1911.09737.pdf
     """
-    def __init__(self, in_ch, dtype=None, **kwargs):
+    def __init__(self, in_ch, dtype=None):
+        super(FRNorm2D, self).__init__()
         self.in_ch = in_ch
-
+        
         if dtype is None:
-            dtype = nn.floatx
+            dtype = torch.float32
         self.dtype = dtype
 
-        super().__init__(**kwargs)
-
-    def build_weights(self):
-        self.weight      = tf.get_variable("weight", (self.in_ch,), dtype=self.dtype, initializer=tf.initializers.ones() )
-        self.bias        = tf.get_variable("bias",   (self.in_ch,), dtype=self.dtype, initializer=tf.initializers.zeros() )
-        self.eps         = tf.get_variable("eps",    (1,), dtype=self.dtype, initializer=tf.initializers.constant(1e-6) )
-
-    def get_weights(self):
-        return [self.weight, self.bias, self.eps]
+        # In PyTorch, the preferred way to declare weights and biases is using nn.Parameter.
+        self.weight = nn.Parameter(torch.ones(self.in_ch, dtype=self.dtype))
+        self.bias = nn.Parameter(torch.zeros(self.in_ch, dtype=self.dtype))
+        self.eps = nn.Parameter(torch.tensor(1e-6, dtype=self.dtype))
 
     def forward(self, x):
-        if nn.data_format == "NHWC":
-            shape = (1,1,1,self.in_ch)
-        else:
-            shape = (1,self.in_ch,1,1)
-        weight       = tf.reshape ( self.weight, shape )
-        bias         = tf.reshape ( self.bias  , shape )
-        nu2 = tf.reduce_mean(tf.square(x), axis=nn.conv2d_spatial_axes, keepdims=True)
-        x = x * ( 1.0/tf.sqrt(nu2 + tf.abs(self.eps) ) )
+        # Assuming that the input tensor x has the shape (N, C, H, W), which is PyTorch's default format.
 
-        return x*weight + bias
+        # Compute nu2 as the mean square of x along spatial dimensions
+        nu2 = x.pow(2).mean(dim=[2, 3], keepdim=True)
+        x_normalized = x * (1.0 / torch.sqrt(nu2 + self.eps.abs()))
+
+        # Scale and shift the normalized tensor
+        x_out = self.weight.view(1, self.in_ch, 1, 1) * x_normalized + self.bias.view(1, self.in_ch, 1, 1)
+
+        return x_out
+
 nn.FRNorm2D = FRNorm2D
